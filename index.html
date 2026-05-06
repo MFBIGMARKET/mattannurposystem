@@ -868,38 +868,8 @@
 </head>
 <body>
 
-    <div id="firebaseLoginPage" class="page active">
-        <div class="login-container">
-            <div class="login-header">
-                <h1>METRO FRESH</h1>
-                <p>MATTANNUR PO SYSTEM LOGIN</p>
-            </div>
-            <div style="max-width: 400px; margin: 0 auto; width: 100%;">
-                <div class="form-group">
-                    <label for="emailInput">Email</label>
-                    <input type="email" id="emailInput" class="form-control" placeholder="Enter your email">
-                </div>
-                <div class="form-group">
-                    <label for="loginPasswordInput">Password</label>
-                    <input type="password" id="loginPasswordInput" class="form-control" placeholder="Enter your password">
-                </div>
-                <p id="firebaseLoginError" style="color: var(--danger-color); display: none; text-align: center; margin-bottom: 15px;"></p>
-                <button class="btn btn-primary" id="firebaseLoginBtn" style="width:100%;">Login</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="locationBlocker" style="position:fixed; top:0; left:0; width:100%; height:100%; background-color:var(--background-color); z-index:9999; display:none; justify-content:center; align-items:center;">
-        <div class="empty-state">
-            <i class="material-icons">location_off</i>
-            <p>Access Denied</p>
-            <p style="font-size:14px; margin-top:10px;">This app can only be used within the supermarket premises.</p>
-        </div>
-    </div>
-
-    <div id="appContainer" style="display: none;">
-        <div id="loginPage" class="page">
-            <button class="icon-button main-page-logout logout-btn" title="Logout"><i class="material-icons">logout</i></button>
+    <div id="appContainer" style="display: block;">
+        <div id="loginPage" class="page active">
             <div class="login-container">
                 <div class="login-header">
                     <h1>METRO FRESH</h1>
@@ -1259,7 +1229,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         
-        const auth = firebase.auth();
         let html5QrCode = null;
         const ADMIN_PASSWORD = "Adm456";
     
@@ -1277,86 +1246,6 @@
             vendorCache: [],
             editingPoId: null
         };
-        
-        const SUPERMARKET_LAT = 11.932382475919386; 
-        const SUPERMARKET_LON = 75.5776749067496;
-        const ALLOWED_RADIUS_METERS = 100000;
-
-        // NEW CODE
-auth.onAuthStateChanged(async (user) => {
-    const firebaseLoginPage = document.getElementById('firebaseLoginPage');
-    const appContainer = document.getElementById('appContainer');
-
-    if (user) {
-        // REPLACE THE CLAIMS LOGIC WITH THIS:
-        // If the email matches yours, force the role to be 'admin'
-        let userRole = 'user';
-        if (user.email === 'manager@mattannur.com') { // <--- PUT YOUR EMAIL HERE
-             userRole = 'admin';
-        }
-
-                firebaseLoginPage.classList.remove('active');
-                allPages.forEach(p => p.id !== 'firebaseLoginPage' && p.classList.remove('active'));
-
-                if (userRole === 'admin') {
-                    document.getElementById('locationBlocker').style.display = 'none';
-                    appContainer.style.display = 'block';
-                    navigateTo('loginPage', {}, true);
-                } else {
-                    checkLocationAndInitializeApp();
-                }
-            } else {
-                appContainer.style.display = 'none';
-                document.getElementById('locationBlocker').style.display = 'none';
-                allPages.forEach(p => p.classList.remove('active'));
-                firebaseLoginPage.classList.add('active');
-            }
-        });
-
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        function checkLocationAndInitializeApp() {
-            const blocker = document.getElementById('locationBlocker');
-            const appContainer = document.getElementById('appContainer');
-            
-            if (!navigator.geolocation) {
-                blocker.querySelector('p').textContent = "Geolocation is not supported by your browser.";
-                blocker.style.display = 'flex';
-                return;
-            }
-            
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const userLat = position.coords.latitude;
-                    const userLon = position.coords.longitude;
-                    const distance = getDistance(SUPERMARKET_LAT, SUPERMARKET_LON, userLat, userLon);
-                    
-                    if (distance <= ALLOWED_RADIUS_METERS) {
-                        blocker.style.display = 'none';
-                        appContainer.style.display = 'block';
-                        navigateTo('loginPage', {}, true);
-                    } else {
-                        blocker.querySelector('p:last-child').textContent = "This app can only be used within the supermarket premises.";
-                        blocker.style.display = 'flex';
-                        appContainer.style.display = 'none';
-                    }
-                },
-                () => {
-                    blocker.querySelector('p:last-child').textContent = "Location access was denied. Please enable location services to use the app.";
-                    blocker.style.display = 'flex';
-                    appContainer.style.display = 'none';
-                }
-            );
-        }
 
         const allPages = document.querySelectorAll('.page');
         
@@ -1836,6 +1725,10 @@ auth.onAuthStateChanged(async (user) => {
                 passwordInput.value = '';
                 passwordError.style.display = 'none';
                 hideModal('passwordModal');
+                
+                // Save admin authentication flag to local storage
+                localStorage.setItem('isAdminAuthed', 'true');
+                
                 await navigateTo('adminPage');
             } else {
                 passwordError.textContent = 'Incorrect password. Please try again.';
@@ -2216,25 +2109,10 @@ auth.onAuthStateChanged(async (user) => {
         }
 
         document.body.addEventListener('click', async (e) => {
-            if (e.target.closest('#firebaseLoginBtn')) {
-                const email = document.getElementById('emailInput').value;
-                const password = document.getElementById('loginPasswordInput').value;
-                const errorEl = document.getElementById('firebaseLoginError');
-
-                auth.signInWithEmailAndPassword(email, password)
-                    .catch((error) => {
-                        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-                            errorEl.textContent = 'Invalid email or password.';
-                        } else {
-                            errorEl.textContent = 'An error occurred. Please try again.';
-                        }
-                        errorEl.style.display = 'block';
-                    });
-            }
-
             if (e.target.closest('.logout-btn')) {
-                if (confirm('Are you sure you want to logout?')) {
-                    auth.signOut();
+                if (confirm('Are you sure you want to logout of Admin?')) {
+                    localStorage.removeItem('isAdminAuthed');
+                    await navigateTo('loginPage');
                 }
             }
             
@@ -2290,7 +2168,12 @@ auth.onAuthStateChanged(async (user) => {
                 AppState.currentDate = new Date(); 
                 AppState.adminDrilldown = []; 
                 if (tile.dataset.page === 'adminPage') {
-                    showModal('passwordModal');
+                    // Check if Admin has already entered the password previously
+                    if (localStorage.getItem('isAdminAuthed') === 'true') {
+                        await navigateTo('adminPage');
+                    } else {
+                        showModal('passwordModal');
+                    }
                 } else {
                     await navigateTo(tile.dataset.page, { category: tile.dataset.category }); 
                 }
